@@ -1,6 +1,6 @@
 package mpicbg.stitching.fusion;
 
-import net.imglib2.image.Image;
+import net.imglib2.img.Image;
 import net.imglib2.interpolation.Interpolator;
 import net.imglib2.interpolation.InterpolatorFactory;
 import net.imglib2.type.numeric.RealType;
