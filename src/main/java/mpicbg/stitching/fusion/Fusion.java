@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
+import net.imglib2.RealRandomAccess;
 import net.imglib2.exception.ImgLibException;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
@@ -137,7 +138,7 @@ public class Fusion
 					final ArrayList< ImageInterpolation< FloatType > > blockData = new ArrayList< ImageInterpolation< FloatType > >();
 
 					// for linear interpolation we want to mirror, otherwise we get black areas at the first and last pixel of each image
-					final InterpolatorFactory< FloatType > interpolatorFactory = new LinearInterpolatorFactory<FloatType>( new OutOfBoundsStrategyMirrorFactory<FloatType>() );
+					final InterpolatorFactory< FloatType, FloatType > interpolatorFactory = new LinearInterpolatorFactory<FloatType>( new OutOfBoundsStrategyMirrorFactory<FloatType>() );
 					
 					for ( final ImagePlus imp : images )
 						blockData.add( new ImageInterpolation<FloatType>( ImageJFunctions.convertFloat( Hyperstack_rearranger.getImageChunk( imp, c, t ) ), interpolatorFactory ) );
@@ -172,9 +173,9 @@ public class Fusion
 					// can be a mixture of different RealTypes
 					final ArrayList< ImageInterpolation< ? extends RealType< ? > > > blockData = new ArrayList< ImageInterpolation< ? extends RealType< ? > > >();
 
-					final InterpolatorFactory< FloatType > interpolatorFactoryFloat = new NearestNeighborInterpolatorFactory< FloatType >( new OutOfBoundsStrategyValueFactory<FloatType>() );
-					final InterpolatorFactory< UnsignedShortType > interpolatorFactoryShort = new NearestNeighborInterpolatorFactory< UnsignedShortType >( new OutOfBoundsStrategyValueFactory<UnsignedShortType>() );
-					final InterpolatorFactory< UnsignedByteType > interpolatorFactoryByte = new NearestNeighborInterpolatorFactory< UnsignedByteType >( new OutOfBoundsStrategyValueFactory<UnsignedByteType>() );
+					final InterpolatorFactory< FloatType, FloatType > interpolatorFactoryFloat = new NearestNeighborInterpolatorFactory< FloatType >( new OutOfBoundsStrategyValueFactory<FloatType>() );
+					final InterpolatorFactory< UnsignedShortType, UnsignedShortType > interpolatorFactoryShort = new NearestNeighborInterpolatorFactory< UnsignedShortType >( new OutOfBoundsStrategyValueFactory<UnsignedShortType>() );
+					final InterpolatorFactory< UnsignedByteType, UnsignedByteType > interpolatorFactoryByte = new NearestNeighborInterpolatorFactory< UnsignedByteType >( new OutOfBoundsStrategyValueFactory<UnsignedByteType>() );
 
 					for ( final ImagePlus imp : images )
 					{
@@ -311,10 +312,10 @@ public class Fusion
                 	final long loopSize = myChunk.getLoopSize();
                 	
             		final Cursor<T> out = output.localizingCursor();
-            		final ArrayList<Interpolator<? extends RealType<?>>> in = new ArrayList<Interpolator<? extends RealType<?>>>();
+            		final ArrayList<RealRandomAccess<? extends RealType<?>>> in = new ArrayList<RealRandomAccess<? extends RealType<?>>>();
             		
             		for ( int i = 0; i < numImages; ++i )
-            			in.add( input.get( i ).createInterpolator() );
+            			in.add( input.get( i ).createRealRandomAccess() );
             		
             		final float[][] tmp = new float[ numImages ][ output.numDimensions() ];
             		final PixelFusion myFusion = fusion.copy();
@@ -485,10 +486,10 @@ A:        					for ( int i = 0; i < numImages; ++i )
 				max[ i ][ d ] = input.get( i ).getImage().dimension( d ) - 1; 
 		
 		final Cursor<T> out = outputSlice.localizingCursor();
-		final ArrayList<Interpolator<? extends RealType<?>>> in = new ArrayList<Interpolator<? extends RealType<?>>>();
+		final ArrayList<RealRandomAccess<? extends RealType<?>>> in = new ArrayList<RealRandomAccess<? extends RealType<?>>>();
 		
 		for ( int i = 0; i < numImages; ++i )
-			in.add( input.get( i ).createInterpolator() );
+			in.add( input.get( i ).createRealRandomAccess() );
 		
 		final float[][] tmp = new float[ numImages ][ numDimensions ];
 		final PixelFusion myFusion = fusion.copy();

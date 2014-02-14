@@ -12,6 +12,8 @@ import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.imglib2.Cursor;
+import net.imglib2.RandomAccess;
+import net.imglib2.RealRandomAccess;
 import net.imglib2.exception.ImgLibException;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
@@ -98,7 +100,9 @@ public class OverlayFusion
 		// numchannels, z-slices, timepoints (but right now the order is still XYZCT)
 		if ( dimensionality == 3 )
 		{
-			result.setDimensions( size[ 2 ], imp.getNChannels(), imp.getNFrames() );
+			if (size[2] > Integer.MAX_VALUE)
+				throw new IllegalArgumentException("Too many image planes: " + size[2]);
+			result.setDimensions( (int) size[ 2 ], imp.getNChannels(), imp.getNFrames() );
 			result = OverlayFusion.switchZCinXYCZT( result );
 			return CompositeImageFixer.makeComposite( result, CompositeImage.COMPOSITE );
 		}
@@ -112,12 +116,12 @@ public class OverlayFusion
 		return result;
 	}
 	
-	public static <T extends RealType<T>> CompositeImage createOverlay( final T targetType, final ArrayList<ImagePlus> images, final ArrayList<InvertibleBoundable> models, final int dimensionality, final int timepoint, final InterpolatorFactory< FloatType > factory )
+	public static <T extends RealType<T> & NativeType<T>> CompositeImage createOverlay( final T targetType, final ArrayList<ImagePlus> images, final ArrayList<InvertibleBoundable> models, final int dimensionality, final int timepoint, final InterpolatorFactory< FloatType, FloatType > factory )
 	{	
 		final int numImages = images.size();
 		
 		// the size of the new image
-		final int[] size = new int[ dimensionality ];
+		final long[] size = new long[ dimensionality ];
 		// the offset relative to the output image which starts with its local coordinates (0,0,0)
 		final float[] offset = new float[ dimensionality ];
 
@@ -125,9 +129,11 @@ public class OverlayFusion
 		Fusion.estimateBounds( offset, size, images, models, dimensionality );
 		
 		// for output
-		final ImgFactory<T> f = new ImgFactory<T>( targetType, new ImagePlusContainerFactory() );
+		final ImagePlusImgFactory<T> f = new ImagePlusImgFactory<T>( );
 		// the composite
-		final ImageStack stack = new ImageStack( size[ 0 ], size[ 1 ] );
+		if (size[0] > Integer.MAX_VALUE || size[1] > Integer.MAX_VALUE)
+			throw new IllegalArgumentException("Image plane too large: " + size[0] + " x " + size[1]);
+		final ImageStack stack = new ImageStack( (int) size[ 0 ], (int) size[ 1 ] );
 		
 		int numChannels = 0;
 		
@@ -139,11 +145,11 @@ public class OverlayFusion
 			// loop over all channels
 			for ( int c = 1; c <= imp.getNChannels(); ++c )
 			{
-				final Image<T> out = f.createImage( size );
+				final ImagePlusImg<T, ?> out = f.create( size, targetType );
 				fuseChannel( out, ImageJFunctions.convertFloat( Hyperstack_rearranger.getImageChunk( imp, c, timepoint ) ), offset, models.get( i + (timepoint - 1) * numImages ), factory );
 				try 
 				{
-					final ImagePlus outImp = ((ImagePlusContainer<?,?>)out.getContainer()).getImagePlus();
+					final ImagePlus outImp = out.getImagePlus();
 					for ( int z = 1; z <= out.dimension( 2 ); ++z )
 						stack.addSlice( imp.getTitle(), outImp.getStack().getProcessor( z ) );
 				} 
@@ -163,7 +169,9 @@ public class OverlayFusion
 		// numchannels, z-slices, timepoints (but right now the order is still XYZCT)
 		if ( dimensionality == 3 )
 		{
-			result.setDimensions( size[ 2 ], numChannels, 1 );
+			if (size[2] > Integer.MAX_VALUE)
+				throw new IllegalArgumentException("Too many image planes: " + size[2]);
+			result.setDimensions( (int) size[ 2 ], numChannels, 1 );
 			result = OverlayFusion.switchZCinXYCZT( result );
 		}
 		else
@@ -181,7 +189,7 @@ public class OverlayFusion
 	 * @param input - FloatType, because of Interpolation that needs to be done
 	 * @param transform - the transformation
 	 */
-	protected static <T extends RealType<T> & NativeType<T>> void fuseChannel( final ImagePlusImg<T, ?> output, final Img<FloatType> input, final float[] offset, final InvertibleCoordinateTransform transform, final InterpolatorFactory< FloatType > factory )
+	protected static <T extends RealType<T> & NativeType<T>> void fuseChannel( final ImagePlusImg<T, ?> output, final Img<FloatType> input, final float[] offset, final InvertibleCoordinateTransform transform, final InterpolatorFactory< FloatType, FloatType > factory )
 	{
 		final int dims = output.numDimensions();
 		long imageSize = output.dimension( 0 );
@@ -210,14 +218,14 @@ public class OverlayFusion
                 	final long loopSize = myChunk.getLoopSize();
                 	
             		final Cursor<T> out = output.localizingCursor();
-            		final Interpolator<FloatType> in = input.createInterpolator( factory );
+            		final RandomAccess<FloatType> in = input.randomAccess();
             		
             		final float[] tmp = new float[ input.numDimensions() ];
             		
             		try 
             		{
                 		// move to the starting position of the current thread
-            			out.fwd( startPos );
+            			out.jumpFwd( startPos );
             			
                 		// do as many pixels as wanted by this thread
                         for ( long j = 0; j < loopSize; ++j )
@@ -225,12 +233,12 @@ public class OverlayFusion
             				out.fwd();
             				
             				for ( int d = 0; d < dims; ++d )
-            					tmp[ d ] = out.getPosition( d ) + offset[ d ];
+            					tmp[ d ] = out.getFloatPosition( d ) + offset[ d ];
             				
             				transform.applyInverseInPlace( tmp );
             	
-            				in.setPosition( tmp );			
-            				out.getType().setReal( in.getType().get() );
+            				in.localize( tmp );			
+            				out.get().setReal( in.get().get() );
             			}
             		} 
             		catch (NoninvertibleModelException e) 
@@ -246,7 +254,7 @@ public class OverlayFusion
 		
         /*
 		final LocalizableCursor<T> out = output.createLocalizableCursor();
-		final Interpolator<FloatType> in = input.createInterpolator( factory );
+		final RealRandomAccess<FloatType> in = input.createRealRandomAccess( factory );
 		
 		final float[] tmp = new float[ input.numDimensions() ];
 		

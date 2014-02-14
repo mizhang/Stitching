@@ -1,12 +1,12 @@
 package mpicbg.stitching.fusion;
 
+import net.imglib2.RealRandomAccess;
 import net.imglib2.img.Img;
-import net.imglib2.interpolation.Interpolator;
 import net.imglib2.interpolation.InterpolatorFactory;
 import net.imglib2.type.numeric.RealType;
 
 /**
- * This class is necessary as it can create an {@link Interpolator} for an {@link Image} even if hold it as < ? extends RealType< ? > >
+ * This class is necessary as it can create a {@link RealRandomAccess} for an {@link Img} even if hold it as < ? extends RealType< ? > >
  * 
  * @author preibischs
  *
@@ -15,14 +15,14 @@ import net.imglib2.type.numeric.RealType;
 public class ImageInterpolation< T extends RealType< T > > 
 {
 	final Img< T > image;
-	final InterpolatorFactory< T > interpolatorFactory;
+	final InterpolatorFactory< T, T > interpolatorFactory;
 	
-	public ImageInterpolation( final Img< T > image, final InterpolatorFactory< T > interpolatorFactory )
+	public ImageInterpolation( final Img< T > image, final InterpolatorFactory< T, T > interpolatorFactory )
 	{
 		this.image = image;
 		this.interpolatorFactory = interpolatorFactory;
 	}
 	
 	public Img< T > getImage() { return image; }
-	public Interpolator< T > createInterpolator() { return interpolatorFactory.createInterpolator( image ); }
+	public RealRandomAccess< T > createRealRandomAccess() { return interpolatorFactory.create( image.firstElement(), image ); }
 }

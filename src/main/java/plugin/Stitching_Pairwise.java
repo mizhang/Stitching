@@ -443,7 +443,7 @@ public class Stitching_Pairwise implements PlugIn
 		else if ( params.fusionMethod == 5 ) // overlay
 		{
 			// images are always the same, we just trigger different timepoints
-			final InterpolatorFactory< FloatType > factory;
+			final InterpolatorFactory< FloatType, FloatType > factory;
 			
 			if ( params.subpixelAccuracy )
 				factory  = new LinearInterpolatorFactory<FloatType>( new OutOfBoundsStrategyValueFactory<FloatType>() );
