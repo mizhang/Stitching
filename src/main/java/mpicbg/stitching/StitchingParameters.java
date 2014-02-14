@@ -1,7 +1,7 @@
 package mpicbg.stitching;
 
-import mpicbg.imglib.container.ContainerFactory;
-import mpicbg.imglib.container.array.ArrayContainerFactory;
+import net.imglib2.container.ContainerFactory;
+import net.imglib2.container.array.ArrayContainerFactory;
 
 public class StitchingParameters 
 {

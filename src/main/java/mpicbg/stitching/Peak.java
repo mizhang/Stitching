@@ -1,9 +1,9 @@
 package mpicbg.stitching;
 
-import mpicbg.imglib.algorithm.fft.PhaseCorrelationPeak;
-import mpicbg.imglib.algorithm.scalespace.DifferenceOfGaussian.SpecialPoint;
-import mpicbg.imglib.algorithm.scalespace.DifferenceOfGaussianPeak;
-import mpicbg.imglib.type.numeric.real.FloatType;
+import net.imglib2.algorithm.fft.PhaseCorrelationPeak;
+import net.imglib2.algorithm.scalespace.DifferenceOfGaussian.SpecialPoint;
+import net.imglib2.algorithm.scalespace.DifferenceOfGaussianPeak;
+import net.imglib2.type.numeric.real.FloatType;
 
 public class Peak extends DifferenceOfGaussianPeak<FloatType> 
 {

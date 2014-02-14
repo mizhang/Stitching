@@ -38,9 +38,9 @@
 			<version>${imagej1.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>sc.fiji</groupId>
-			<artifactId>legacy-imglib1</artifactId>
-			<version>${fiji.version}</version>
+			<groupId>${imglib2.groupId}</groupId>
+			<artifactId>imglib2</artifactId>
+			<version>${imglib2.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>mpicbg</groupId>

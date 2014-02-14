@@ -1,9 +1,9 @@
 package mpicbg.stitching.fusion;
 
-import mpicbg.imglib.image.Image;
-import mpicbg.imglib.interpolation.Interpolator;
-import mpicbg.imglib.interpolation.InterpolatorFactory;
-import mpicbg.imglib.type.numeric.RealType;
+import net.imglib2.image.Image;
+import net.imglib2.interpolation.Interpolator;
+import net.imglib2.interpolation.InterpolatorFactory;
+import net.imglib2.type.numeric.RealType;
 
 /**
  * This class is necessary as it can create an {@link Interpolator} for an {@link Image} even if hold it as < ? extends RealType< ? > >

@@ -8,8 +8,8 @@ import java.util.ArrayList;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import mpicbg.imglib.multithreading.SimpleMultiThreading;
-import mpicbg.imglib.util.Util;
+import net.imglib2.multithreading.SimpleMultiThreading;
+import net.imglib2.util.Util;
 import mpicbg.models.TranslationModel2D;
 import mpicbg.models.TranslationModel3D;
 
