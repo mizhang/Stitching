@@ -214,7 +214,7 @@ public class PairWiseStitchingImgLib
 
 		// result
 		final PhaseCorrelationPeak pcp = phaseCorr.getShift();
-		final float[] shift = new float[ img1.getNumDimensions() ];
+		final float[] shift = new float[ img1.numDimensions() ];
 		final PairWiseStitchingResult result;
 		
 		if ( subpixelAccuracy )
@@ -226,8 +226,8 @@ public class PairWiseStitchingImgLib
 			list.add( p );
 					
 			final SubpixelLocalization<FloatType> spl = new SubpixelLocalization<FloatType>( pcm, list );
-			final boolean move[] = new boolean[ pcm.getNumDimensions() ];
-			for ( int i = 0; i < pcm.getNumDimensions(); ++i )
+			final boolean move[] = new boolean[ pcm.numDimensions() ];
+			for ( int i = 0; i < pcm.numDimensions(); ++i )
 				move[ i ] = false;
 			spl.setCanMoveOutside( true );
 			spl.setAllowedToMoveInDim( move );
@@ -237,7 +237,7 @@ public class PairWiseStitchingImgLib
 			
 			final Peak peak = (Peak)list.get( 0 );
 			
-			for ( int d = 0; d < img1.getNumDimensions(); ++d )
+			for ( int d = 0; d < img1.numDimensions(); ++d )
 				shift[ d ] = peak.getPCPeak().getPosition()[ d ] + peak.getSubPixelPositionOffset( d );
 			
 			pcm.close();
@@ -246,7 +246,7 @@ public class PairWiseStitchingImgLib
 		}
 		else
 		{
-			for ( int d = 0; d < img1.getNumDimensions(); ++d )
+			for ( int d = 0; d < img1.numDimensions(); ++d )
 				shift[ d ] = pcp.getPosition()[ d ];
 			
 			result = new PairWiseStitchingResult( shift, pcp.getCrossCorrelationPeak(), pcp.getPhaseCorrelationPeak() );
@@ -441,12 +441,12 @@ public class PairWiseStitchingImgLib
 	protected static < T extends RealType< T >, S extends RealType< S > > void averageAllChannels( final Image< T > target, final ArrayList< Image< S > > sources, final int[] offset )
 	{
 		// get the major numbers
-		final int numDimensions = target.getNumDimensions();
+		final int numDimensions = target.numDimensions();
 		final float numImages = sources.size();
-		long imageSize = target.getDimension( 0 );
+		long imageSize = target.dimension( 0 );
 		
-		for ( int d = 1; d < target.getNumDimensions(); ++d )
-			imageSize *= target.getDimension( d );
+		for ( int d = 1; d < target.numDimensions(); ++d )
+			imageSize *= target.dimension( d );
 
 		// run multithreaded
 		final AtomicInteger ai = new AtomicInteger(0);					

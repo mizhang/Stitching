@@ -599,7 +599,7 @@ public class Stitching_Grid implements PlugIn
 
 			if (addTilesAsRois) {
 				float[] offset = new float[dimensionality];
-        Fusion.estimateBounds(offset, new int[dimensionality], images, models,
+        Fusion.estimateBounds(offset, new long[dimensionality], images, models,
                 dimensionality);
 				generateRois(offset, optimized);
 				RoiManager rm = RoiManager.getInstance();

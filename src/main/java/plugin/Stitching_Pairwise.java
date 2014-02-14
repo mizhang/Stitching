@@ -15,10 +15,8 @@ import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.imglib2.interpolation.InterpolatorFactory;
-import net.imglib2.interpolation.linear.LinearInterpolatorFactory;
-import net.imglib2.interpolation.nearestneighbor.NearestNeighborInterpolatorFactory;
 import net.imglib2.multithreading.SimpleMultiThreading;
-import net.imglib2.outofbounds.OutOfBoundsStrategyValueFactory;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
@@ -431,7 +429,7 @@ public class Stitching_Pairwise implements PlugIn
 		IJ.log( "Finished ... (" + (System.currentTimeMillis() - start) + " ms)");
 	}
 	
-	protected static < T extends RealType< T > > ImagePlus fuse( final T targetType, final ImagePlus imp1, final ImagePlus imp2, final ArrayList<InvertibleBoundable> models, final StitchingParameters params )
+	protected static < T extends RealType< T > & NativeType< T > > ImagePlus fuse( final T targetType, final ImagePlus imp1, final ImagePlus imp2, final ArrayList<InvertibleBoundable> models, final StitchingParameters params )
 	{
 		final ArrayList<ImagePlus> images = new ArrayList< ImagePlus >();
 		images.add( imp1 );

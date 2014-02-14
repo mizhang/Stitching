@@ -14,23 +14,19 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import net.imglib2.container.array.ArrayContainerFactory;
-import net.imglib2.container.imageplus.ImagePlusContainer;
-import net.imglib2.container.imageplus.ImagePlusContainerFactory;
-import net.imglib2.cursor.LocalizableByDimCursor;
-import net.imglib2.cursor.LocalizableCursor;
+import net.imglib2.Cursor;
+import net.imglib2.RandomAccess;
 import net.imglib2.exception.ImgLibException;
-import net.imglib2.img.Image;
+import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.display.imagej.ImageJFunctions;
-import net.imglib2.interpolation.Interpolator;
+import net.imglib2.img.imageplus.ImagePlusImg;
+import net.imglib2.img.imageplus.ImagePlusImgFactory;
+import net.imglib2.img.planar.PlanarImgFactory;
 import net.imglib2.interpolation.InterpolatorFactory;
-import net.imglib2.interpolation.linear.LinearInterpolatorFactory;
-import net.imglib2.interpolation.nearestneighbor.NearestNeighborInterpolatorFactory;
 import net.imglib2.multithreading.Chunk;
 import net.imglib2.multithreading.SimpleMultiThreading;
-import net.imglib2.outofbounds.OutOfBoundsStrategyMirrorFactory;
-import net.imglib2.outofbounds.OutOfBoundsStrategyValueFactory;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
@@ -55,12 +51,12 @@ public class Fusion
 	 * @param dimensionality
 	 * @param subpixelResolution - if there is no subpixel resolution, we do not need to convert to float as no interpolation is necessary, we can compute everything with RealType
 	 */
-	public static < T extends RealType< T > > ImagePlus fuse( final T targetType, final ArrayList< ImagePlus > images, final ArrayList< InvertibleBoundable > models, 
+	public static < T extends RealType< T > & NativeType< T > > ImagePlus fuse( final T targetType, final ArrayList< ImagePlus > images, final ArrayList< InvertibleBoundable > models, 
 			final int dimensionality, final boolean subpixelResolution, final int fusionType, final String outputDirectory, final boolean noOverlap, final boolean ignoreZeroValues )
 	{
 		// first we need to estimate the boundaries of the new image
 		final float[] offset = new float[ dimensionality ];
-		final int[] size = new int[ dimensionality ];
+		final long[] size = new long[ dimensionality ];
 		final int numTimePoints = images.get( 0 ).getNFrames();
 		final int numChannels = images.get( 0 ).getNChannels();
 		
@@ -71,14 +67,19 @@ public class Fusion
 				++size[ d ];
 		
 		// for output
-		final ImgFactory<T> f = new ImgFactory<T>( targetType, new ImagePlusContainerFactory() );
+		final ImagePlusImgFactory<T> f = new ImagePlusImgFactory<T>( );
 		
 		// the final composite
 		final ImageStack stack;
 		
 		// there is no output if we write to disk
 		if ( outputDirectory == null )
-			stack = new ImageStack( size[ 0 ], size[ 1 ] );
+		{
+			if (size[ 0 ] > Integer.MAX_VALUE || size[ 1 ] > Integer.MAX_VALUE) {
+				throw new IllegalArgumentException("Image plane too large: " + size[ 0 ] + " x " + size[ 1 ]);
+			}
+			stack = new ImageStack( (int) size[ 0 ], (int) size[ 1 ] );
+		}
 		else
 			stack = null;
 
@@ -90,13 +91,13 @@ public class Fusion
 				IJ.showStatus("Fusing time point: " + t + " of " + numTimePoints + ", " +
 					"channel: " + c + " of " + numChannels + "...");
 				// create the 2d/3d target image for the current channel and timepoint 
-				final Image< T > out;
+				final ImagePlusImg< T, ? > out;
 				
 				// we just create one slice if we write to disk
 				if ( outputDirectory == null )
-					out = f.createImage( size );
+					out = f.create( size, targetType );
 				else
-					out = f.createImage( new int[] { size[ 0 ], size[ 1 ] } ); // just create a slice
+					out = f.create( new long[] { size[ 0 ], size[ 1 ] }, targetType ); // just create a slice
 
 				// init the fusion
 				PixelFusion fusion = null;
@@ -156,7 +157,7 @@ public class Fusion
 					}
 					else
 					{
-						final int numSlices;
+						final long numSlices;
 						
 						if ( dimensionality == 2 )
 							numSlices = 1;
@@ -164,7 +165,6 @@ public class Fusion
 							numSlices = size[ 2 ];
 						
 						writeBlock( out, numSlices, t, numTimePoints, c, numChannels, blockData, offset, models, fusion, outputDirectory );
-						out.close();
 					}
 				}
 				else
@@ -204,7 +204,7 @@ public class Fusion
 					}
 					else
 					{
-						final int numSlices;
+						final long numSlices;
 						
 						if ( dimensionality == 2 )
 							numSlices = 1;
@@ -212,7 +212,6 @@ public class Fusion
 							numSlices = size[ 2 ];
 						
 						writeBlock( out, numSlices, t, numTimePoints, c, numChannels, blockData, offset, models, fusion, outputDirectory );
-						out.close();
 					}
 				}
 				
@@ -221,8 +220,8 @@ public class Fusion
 				{
 					if ( stack != null )
 					{
-						final ImagePlus outImp = ((ImagePlusContainer<?,?>)out.getContainer()).getImagePlus();
-						for ( int z = 1; z <= out.getDimension( 2 ); ++z )
+						final ImagePlus outImp = out.getImagePlus();
+						for ( int z = 1; z <= out.dimension( 2 ); ++z )
 							stack.addSlice( "", outImp.getStack().getProcessor( z ) );
 					}
 				} 
@@ -245,7 +244,9 @@ public class Fusion
 		// numchannels, z-slices, timepoints (but right now the order is still XYZCT)
 		if ( dimensionality == 3 )
 		{
-			result.setDimensions( size[ 2 ], numChannels, numTimePoints );
+			if ( size[ 2 ] > Integer.MAX_VALUE )
+				throw new IllegalArgumentException("Too many slices: " + size[ 2 ]);
+			result.setDimensions( (int) size[ 2 ], numChannels, numTimePoints );
 			result = OverlayFusion.switchZCinXYCZT( result );
 			return CompositeImageFixer.makeComposite( result, CompositeImage.COMPOSITE );
 		}
@@ -266,15 +267,15 @@ public class Fusion
 	 * @param input - FloatType, because of Interpolation that needs to be done
 	 * @param transform - the transformation
 	 */
-	protected static <T extends RealType<T>> void fuseBlock( final Image<T> output, final ArrayList< ? extends ImageInterpolation< ? extends RealType< ? > > > input, final float[] offset, 
+	protected static <T extends RealType<T>> void fuseBlock( final Img<T> output, final ArrayList< ? extends ImageInterpolation< ? extends RealType< ? > > > input, final float[] offset, 
 			final ArrayList< InvertibleBoundable > transform, final PixelFusion fusion )
 	{
-		final int numDimensions = output.getNumDimensions();
+		final int numDimensions = output.numDimensions();
 		final int numImages = input.size();
-		long imageSize = output.getDimension( 0 );
+		long imageSize = output.dimension( 0 );
 		
-		for ( int d = 1; d < output.getNumDimensions(); ++d )
-			imageSize *= output.getDimension( d );
+		for ( int d = 1; d < output.numDimensions(); ++d )
+			imageSize *= output.dimension( d );
 		
 		final long steps = imageSize;
 
@@ -284,10 +285,10 @@ public class Fusion
 		final int[] globalProgress = {0};
 		IJ.showProgress(0);
 
-		final int[][] max = new int[ numImages ][ numDimensions ];
+		final long[][] max = new long[ numImages ][ numDimensions ];
 		for ( int i = 0; i < numImages; ++i )
 			for ( int d = 0; d < numDimensions; ++d )
-				max[ i ][ d ] = input.get( i ).getImage().getDimension( d ) - 1; 
+				max[ i ][ d ] = input.get( i ).getImage().dimension( d ) - 1; 
 		
 		// run multithreaded
 		final AtomicInteger ai = new AtomicInteger(0);					
@@ -309,13 +310,13 @@ public class Fusion
                 	final long startPos = myChunk.getStartPosition();
                 	final long loopSize = myChunk.getLoopSize();
                 	
-            		final LocalizableCursor<T> out = output.createLocalizableCursor();
+            		final Cursor<T> out = output.localizingCursor();
             		final ArrayList<Interpolator<? extends RealType<?>>> in = new ArrayList<Interpolator<? extends RealType<?>>>();
             		
             		for ( int i = 0; i < numImages; ++i )
             			in.add( input.get( i ).createInterpolator() );
             		
-            		final float[][] tmp = new float[ numImages ][ output.getNumDimensions() ];
+            		final float[][] tmp = new float[ numImages ][ output.numDimensions() ];
             		final PixelFusion myFusion = fusion.copy();
             		
             		// tracks the progress [0-100/#threads] made by this thread
@@ -327,7 +328,7 @@ public class Fusion
             		try 
             		{
                 		// move to the starting position of the current thread
-            			out.fwd( startPos );
+            			out.jumpFwd( startPos );
             			
                 		// do as many pixels as wanted by this thread
                         for ( long j = 0; j < loopSize; ++j )
@@ -341,7 +342,7 @@ public class Fusion
             				// get the current position in the output image
             				for ( int d = 0; d < numDimensions; ++d )
             				{
-            					final float value = out.getPosition( d ) + offset[ d ];
+            					final float value = out.getFloatPosition( d ) + offset[ d ];
             					
             					for ( int i = 0; i < numImages; ++i )
             						tmp[ i ][ d ] = value;
@@ -365,7 +366,7 @@ A:        					for ( int i = 0; i < numImages; ++i )
         					}
             				
             				// set value
-    						out.getType().setReal( myFusion.getValue() );
+    						out.get().setReal( myFusion.getValue() );
                         }
             		} 
             		catch ( NoninvertibleModelException e ) 
@@ -387,15 +388,15 @@ A:        					for ( int i = 0; i < numImages; ++i )
 	 * @param input - FloatType, because of Interpolation that needs to be done
 	 * @param transform - the transformation
 	 */
-	protected static <T extends RealType<T>> void fuseBlockNoOverlap( final Image<T> output, final ArrayList< ? extends ImageInterpolation< ? extends RealType< ? > > > input, final float[] offset, 
+	protected static <T extends RealType<T>> void fuseBlockNoOverlap( final Img<T> output, final ArrayList< ? extends ImageInterpolation< ? extends RealType< ? > > > input, final float[] offset, 
 			final ArrayList< InvertibleBoundable > transform )
 	{
-		final int numDimensions = output.getNumDimensions();
+		final int numDimensions = output.numDimensions();
 		final int numImages = input.size();
-		long imageSize = output.getDimension( 0 );
+		long imageSize = output.dimension( 0 );
 		
-		for ( int d = 1; d < output.getNumDimensions(); ++d )
-			imageSize *= output.getDimension( d );
+		for ( int d = 1; d < output.numDimensions(); ++d )
+			imageSize *= output.dimension( d );
 		
 		final long steps = imageSize;
 		
@@ -416,7 +417,7 @@ A:        					for ( int i = 0; i < numImages; ++i )
                 	// Thread ID
                 	final int myImage = ai.getAndIncrement();
         
-                	final Image< ? extends RealType<?> > image = input.get( myImage ).getImage();
+                	final Img< ? extends RealType<?> > image = input.get( myImage ).getImage();
                 	final int[] translation = new int[ numDimensions ];
                 	
                 	final InvertibleBoundable t = transform.get( myImage );
@@ -426,8 +427,8 @@ A:        					for ( int i = 0; i < numImages; ++i )
             		for ( int d = 0; d < numDimensions; ++d )
             			translation[ d ] = Math.round( tmp[ d ] );
 
-            		final LocalizableCursor< ? extends RealType<?> > cursor = image.createLocalizableCursor();
-            		final LocalizableByDimCursor< ? extends RealType<?> > randomAccess = output.createLocalizableByDimCursor();
+            		final Cursor< ? extends RealType<?> > cursor = image.localizingCursor();
+            		final RandomAccess< ? extends RealType<?> > randomAccess = output.randomAccess();
             		final int[] pos = new int[ numDimensions ];
             		// tracks the progress [0-100/#threads] made by this thread
             		int[] localProgress = {0};
@@ -438,7 +439,7 @@ A:        					for ( int i = 0; i < numImages; ++i )
             		while ( cursor.hasNext() )
             		{
             			cursor.fwd();
-            			cursor.getPosition( pos );
+            			cursor.localize( pos );
           				stepsTaken++;
           				
           				// update status message if necessary
@@ -451,7 +452,7 @@ A:        					for ( int i = 0; i < numImages; ++i )
                 		}
                 		
                 		randomAccess.setPosition( pos );
-                		randomAccess.getType().setReal( cursor.getType().getRealFloat() );
+                		randomAccess.get().setReal( cursor.get().getRealFloat() );
             		}           		
                  }
             });
@@ -466,24 +467,24 @@ A:        					for ( int i = 0; i < numImages; ++i )
 	 * @param input - FloatType, because of Interpolation that needs to be done
 	 * @param transform - the transformation
 	 */
-	protected static <T extends RealType<T>> void writeBlock( final Image<T> outputSlice, final int numSlices, final int t, final int numTimePoints, final int c, final int numChannels, 
+	protected static <T extends RealType<T> & NativeType<T>> void writeBlock( final ImagePlusImg<T, ?> outputSlice, final long numSlices, final int t, final int numTimePoints, final int c, final int numChannels, 
 			final ArrayList< ? extends ImageInterpolation< ? extends RealType< ? > > > input, final float[] offset, 
 			final ArrayList< InvertibleBoundable > transform, final PixelFusion fusion, final String outputDirectory )
 	{
 		final int numImages = input.size();
 		final int numDimensions = offset.length;
-		long imageSize = outputSlice.getDimension( 0 );
+		long imageSize = outputSlice.dimension( 0 );
 		
-		for ( int d = 1; d < outputSlice.getNumDimensions(); ++d )
-			imageSize *= outputSlice.getDimension( d );
+		for ( int d = 1; d < outputSlice.numDimensions(); ++d )
+			imageSize *= outputSlice.dimension( d );
 
 		// the maximal dimensions of each image
-		final int[][] max = new int[ numImages ][ numDimensions ];
+		final long[][] max = new long[ numImages ][ numDimensions ];
 		for ( int i = 0; i < numImages; ++i )
 			for ( int d = 0; d < numDimensions; ++d )
-				max[ i ][ d ] = input.get( i ).getImage().getDimension( d ) - 1; 
+				max[ i ][ d ] = input.get( i ).getImage().dimension( d ) - 1; 
 		
-		final LocalizableCursor<T> out = outputSlice.createLocalizableCursor();
+		final Cursor<T> out = outputSlice.localizingCursor();
 		final ArrayList<Interpolator<? extends RealType<?>>> in = new ArrayList<Interpolator<? extends RealType<?>>>();
 		
 		for ( int i = 0; i < numImages; ++i )
@@ -518,7 +519,7 @@ A:        					for ( int i = 0; i < numImages; ++i )
 					// get the current position in the output image
 					for ( int d = 0; d < 2; ++d )
 					{
-						final float value = out.getPosition( d ) + offset[ d ];
+						final float value = out.getFloatPosition( d ) + offset[ d ];
 						
 						for ( int i = 0; i < numImages; ++i )
 							tmp[ i ][ d ] = value;
@@ -547,15 +548,15 @@ A:		        	for ( int i = 0; i < numImages; ++i )
 								continue A;
 						
 						in.get( i ).setPosition( tmp[ i ] );			
-						myFusion.addValue( in.get( i ).getType().getRealFloat(), i, tmp[ i ] );
+						myFusion.addValue( in.get( i ).get().getRealFloat(), i, tmp[ i ] );
 					}
 					
 					// set value
-					out.getType().setReal( myFusion.getValue() );
+					out.get().setReal( myFusion.getValue() );
 				}
 				
 				// write the slice
-				final ImagePlus outImp = ((ImagePlusContainer<?,?>)outputSlice.getContainer()).getImagePlus();
+				final ImagePlus outImp = outputSlice.getImagePlus();
 				final FileSaver fs = new FileSaver( outImp );
 				fs.saveAsTiff( new File( outputDirectory, "img_t" + lz( t, numTimePoints ) + "_z" + lz( slice+1, numSlices ) + "_c" + lz( c, numChannels ) ).getAbsolutePath() );
 			}
@@ -572,7 +573,7 @@ A:		        	for ( int i = 0; i < numImages; ++i )
 		}
 	}
 
-	private static final String lz( final int num, final int max )
+	private static final String lz( final long num, final long max )
 	{
 		String out = "" + num;
 		String outMax = "" + max;
@@ -599,7 +600,7 @@ A:		        	for ( int i = 0; i < numImages; ++i )
 	 * @param models - all models
 	 * @param dimensionality - which dimensionality (2 or 3)
 	 */
-	public static void estimateBounds( final float[] offset, final int[] size, final List<ImagePlus> images, final ArrayList<InvertibleBoundable> models, final int dimensionality )
+	public static void estimateBounds( final float[] offset, final long[] size, final List<ImagePlus> images, final ArrayList<InvertibleBoundable> models, final int dimensionality )
 	{
 		final int[][] imgSizes = new int[ images.size() ][ dimensionality ];
 		
@@ -630,7 +631,7 @@ A:		        	for ( int i = 0; i < numImages; ++i )
 	 * @param models - all models
 	 * @param dimensionality - which dimensionality (2 or 3)
 	 */
-	public static void estimateBounds( final float[] offset, final int[] size, final int[][]imgSizes, final ArrayList<InvertibleBoundable> models, final int dimensionality )
+	public static void estimateBounds( final float[] offset, final long[] size, final int[][]imgSizes, final ArrayList<InvertibleBoundable> models, final int dimensionality )
 	{
 		final int numImages = imgSizes.length;
 		final int numTimePoints = models.size() / numImages;
@@ -734,7 +735,7 @@ A:		        	for ( int i = 0; i < numImages; ++i )
 	 * </p>
 	 */
 	private static void updateStatus(int[] globalProgress, int[] localProgress,
-		long localPosition, long globalMax, Image<?> imageLock) {
+		long localPosition, long globalMax, Img<?> imageLock) {
 		// assume a 0-100 % based update granularity
 		final int updates = 100;
 		// Compute the current progress. The actual value relative to the global
@@ -759,15 +760,16 @@ A:		        	for ( int i = 0; i < numImages; ++i )
 		new ImageJ();
 		
 		// test blending
-		ImgFactory< FloatType > f = new ImgFactory<FloatType>( new FloatType(), new ArrayContainerFactory() );
-		Image< FloatType > img = f.createImage( new int[] { 400, 400 } ); 
+		ImgFactory< FloatType > f = new PlanarImgFactory<FloatType>( );
+		Img< FloatType > img = f.create( new int[] { 400, 400 }, new FloatType() ); 
 		
-		LocalizableCursor< FloatType > c = img.createLocalizableCursor();
-		final int numDimensions = img.getNumDimensions();
+		Cursor< FloatType > c = img.cursor();
+		final int numDimensions = img.numDimensions();
 		final float[] tmp = new float[ numDimensions ];
 		
 		// for blending
-		final int[] dimensions = img.getDimensions();
+		final long[] dimensions = new long[ img.numDimensions() ];
+		img.dimensions(dimensions);
 		final float percentScaling = 0.2f;
 		final float[] border = new float[ numDimensions ];
 					
@@ -776,9 +778,9 @@ A:		        	for ( int i = 0; i < numImages; ++i )
 			c.fwd();
 			
 			for ( int d = 0; d < numDimensions; ++d )
-				tmp[ d ] = c.getPosition( d );
+				tmp[ d ] = c.getFloatPosition( d );
 			
-			c.getType().set( (float)BlendingPixelFusion.computeWeight( tmp, dimensions, border, percentScaling ) );
+			c.get().set( (float)BlendingPixelFusion.computeWeight( tmp, dimensions, border, percentScaling ) );
 		}
 		
 		ImageJFunctions.show( img );
