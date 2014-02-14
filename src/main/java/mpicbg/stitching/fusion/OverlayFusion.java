@@ -16,7 +16,7 @@ import net.imglib2.container.imageplus.ImagePlusContainerFactory;
 import net.imglib2.cursor.LocalizableCursor;
 import net.imglib2.exception.ImgLibException;
 import net.imglib2.image.Image;
-import net.imglib2.image.ImageFactory;
+import net.imglib2.image.ImgFactory;
 import net.imglib2.image.display.imagej.ImageJFunctions;
 import net.imglib2.interpolation.Interpolator;
 import net.imglib2.interpolation.InterpolatorFactory;
@@ -69,7 +69,7 @@ public class OverlayFusion
 		Fusion.estimateBounds( offset, size, imgSizes, models, dimensionality );
 				
 		// for output
-		final ImageFactory<T> f = new ImageFactory<T>( targetType, new ImagePlusContainerFactory() );
+		final ImgFactory<T> f = new ImgFactory<T>( targetType, new ImagePlusContainerFactory() );
 		// the composite
 		final ImageStack stack = new ImageStack( size[ 0 ], size[ 1 ] );
 
@@ -125,7 +125,7 @@ public class OverlayFusion
 		Fusion.estimateBounds( offset, size, images, models, dimensionality );
 		
 		// for output
-		final ImageFactory<T> f = new ImageFactory<T>( targetType, new ImagePlusContainerFactory() );
+		final ImgFactory<T> f = new ImgFactory<T>( targetType, new ImagePlusContainerFactory() );
 		// the composite
 		final ImageStack stack = new ImageStack( size[ 0 ], size[ 1 ] );
 		

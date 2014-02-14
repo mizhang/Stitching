@@ -16,7 +16,7 @@ import net.imglib2.algorithm.scalespace.SubpixelLocalization;
 import net.imglib2.cursor.LocalizableByDimCursor;
 import net.imglib2.cursor.LocalizableCursor;
 import net.imglib2.image.Image;
-import net.imglib2.image.ImageFactory;
+import net.imglib2.image.ImgFactory;
 import net.imglib2.image.display.imagej.ImageJFunctions;
 import net.imglib2.multithreading.Chunk;
 import net.imglib2.multithreading.SimpleMultiThreading;
@@ -104,9 +104,9 @@ public class PairWiseStitchingImgLib
 		}
 		else
 		{
-			final ImageFactory<UnsignedByteType> imgFactoryByte = new ImageFactory<UnsignedByteType>( new UnsignedByteType(), StitchingParameters.phaseCorrelationFactory );
-			final ImageFactory<UnsignedShortType> imgFactoryShort = new ImageFactory<UnsignedShortType>( new UnsignedShortType(), StitchingParameters.phaseCorrelationFactory );
-			final ImageFactory<FloatType> imgFactoryFloat = new ImageFactory<FloatType>( new FloatType(), StitchingParameters.phaseCorrelationFactory );
+			final ImgFactory<UnsignedByteType> imgFactoryByte = new ImgFactory<UnsignedByteType>( new UnsignedByteType(), StitchingParameters.phaseCorrelationFactory );
+			final ImgFactory<UnsignedShortType> imgFactoryShort = new ImgFactory<UnsignedShortType>( new UnsignedShortType(), StitchingParameters.phaseCorrelationFactory );
+			final ImgFactory<FloatType> imgFactoryFloat = new ImgFactory<FloatType>( new FloatType(), StitchingParameters.phaseCorrelationFactory );
 			
 			if ( imp1.getType() == ImagePlus.GRAY32 )
 			{
@@ -259,13 +259,13 @@ public class PairWiseStitchingImgLib
 	 * return an {@link Image}<T> as input for the PhaseCorrelation.
 	 * 
 	 * @param imp - the {@link ImagePlus}
-	 * @param imgFactory - the {@link ImageFactory} defining wher to put it into
+	 * @param imgFactory - the {@link ImgFactory} defining wher to put it into
 	 * @param channel - which channel (if channel=0 means average all channels)
 	 * @param timepoint - which timepoint
 	 * 
 	 * @return - the {@link Image} or null if it was not an ImagePlus.GRAY8, ImagePlus.GRAY16 or ImagePlus.GRAY32
 	 */
-	public static < T extends RealType<T> > Image<T> getImage( final ImagePlus imp, Roi roi, final ImageFactory<T> imgFactory, final int channel, final int timepoint )
+	public static < T extends RealType<T> > Image<T> getImage( final ImagePlus imp, Roi roi, final ImgFactory<T> imgFactory, final int channel, final int timepoint )
 	{
 		// first test the roi
 		roi = getOnlyRectangularRoi( roi );
@@ -565,7 +565,7 @@ public class PairWiseStitchingImgLib
 	/**
 	 * Determines if this imageplus with these parameters can be wrapped directly into an Image<T>.
 	 * This is important, because if we would wrap the first but not the second image, they would
-	 * have different {@link ImageFactory}s
+	 * have different {@link ImgFactory}s
 	 * 
 	 * @param imp - the ImagePlus
 	 * @param channel - which channel (if channel=0 means average all channels)

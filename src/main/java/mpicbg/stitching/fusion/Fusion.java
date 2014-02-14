@@ -21,7 +21,7 @@ import net.imglib2.cursor.LocalizableByDimCursor;
 import net.imglib2.cursor.LocalizableCursor;
 import net.imglib2.exception.ImgLibException;
 import net.imglib2.image.Image;
-import net.imglib2.image.ImageFactory;
+import net.imglib2.image.ImgFactory;
 import net.imglib2.image.display.imagej.ImageJFunctions;
 import net.imglib2.interpolation.Interpolator;
 import net.imglib2.interpolation.InterpolatorFactory;
@@ -71,7 +71,7 @@ public class Fusion
 				++size[ d ];
 		
 		// for output
-		final ImageFactory<T> f = new ImageFactory<T>( targetType, new ImagePlusContainerFactory() );
+		final ImgFactory<T> f = new ImgFactory<T>( targetType, new ImagePlusContainerFactory() );
 		
 		// the final composite
 		final ImageStack stack;
@@ -759,7 +759,7 @@ A:		        	for ( int i = 0; i < numImages; ++i )
 		new ImageJ();
 		
 		// test blending
-		ImageFactory< FloatType > f = new ImageFactory<FloatType>( new FloatType(), new ArrayContainerFactory() );
+		ImgFactory< FloatType > f = new ImgFactory<FloatType>( new FloatType(), new ArrayContainerFactory() );
 		Image< FloatType > img = f.createImage( new int[] { 400, 400 } ); 
 		
 		LocalizableCursor< FloatType > c = img.createLocalizableCursor();
